@@ -1,42 +1,44 @@
 from django.contrib.admin.views.decorators import staff_member_required
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, time
 import json
 from django.db.models import Count
 from django.db.models.functions import TruncDate
 from django.shortcuts import render
 from django.utils import timezone
-from .models import Appointment, Encounter, Provider, Diagnosis
+from .models import Appointment, Encounter, Provider, Diagnosis, Procedure
+from django.db.models import Sum
 import csv
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
 
 @staff_member_required
 def dashboard(request):
-    # filtros
-    days_default = 30
-    days = int(request.GET.get("days", days_default))
-    start = request.GET.get("start")
-    end = request.GET.get("end")
-    status = request.GET.get("status")  # completed, no_show, cancelled, scheduled
-    provider_id = request.GET.get("provider")
+    # --- filtros ---
+    days = int(request.GET.get("days", 30))        # fallback quando não há start/end
+    status = request.GET.get("status") or ""       # completed, no_show, cancelled, scheduled
+    provider_id = request.GET.get("provider") or ""
 
-    # período: se vier start/end usa, senão usa "days"
-    if start and end:
-        since = timezone.make_aware(datetime.combine(parse_date(start), datetime.min.time()))
-        until = timezone.make_aware(datetime.combine(parse_date(end), datetime.max.time()))
+    start_str = request.GET.get("start") or ""
+    end_str = request.GET.get("end") or ""
+
+    start_date = parse_date(start_str) if start_str else None
+    end_date = parse_date(end_str) if end_str else None
+
+    # período: se vier start/end válidos usa; senão usa "days"
+    if start_date and end_date:
+        since = timezone.make_aware(datetime.combine(start_date, time.min))
+        until = timezone.make_aware(datetime.combine(end_date, time.max))
     else:
         since = timezone.now() - timedelta(days=days)
         until = timezone.now()
 
     appts = Appointment.objects.filter(scheduled_at__range=(since, until))
-
     if status:
         appts = appts.filter(status=status)
-
     if provider_id:
         appts = appts.filter(provider_id=provider_id)
 
-    # métricas
+    # --- métricas principais ---
     total = appts.count()
     completed = appts.filter(status="completed").count()
     no_show = appts.filter(status="no_show").count()
@@ -49,6 +51,7 @@ def dashboard(request):
     durations = [e.duration_minutes for e in encs if e.duration_minutes is not None]
     avg_minutes = round(sum(durations)/len(durations), 1) if durations else 0
 
+    # séries e agregações
     daily_qs = (appts.annotate(day=TruncDate("scheduled_at"))
                 .values("day").annotate(cnt=Count("id")).order_by("day"))
     daily = [{"day": d["day"].strftime("%Y-%m-%d"), "cnt": d["cnt"]} for d in daily_qs]
@@ -62,18 +65,33 @@ def dashboard(request):
                  .values("code", "description").annotate(cnt=Count("id")).order_by("-cnt")[:10])
     top_dx = [{"label": f'{r["code"]}', "cnt": r["cnt"]} for r in top_dx_qs]
 
+    # procedimentos + receita estimada (MVP)
+    proc_qs = (Procedure.objects
+        .filter(encounter__appointment__in=appts, encounter__check_out__isnull=False)
+        .values("name", "category__name")
+        .annotate(qtd=Count("id"))
+        .order_by("-qtd"))
+    procedures_data = [{"label": r["name"], "cnt": r["qtd"], "cat": r["category__name"]} for r in proc_qs]
+
+    proc_revenue_qs = (Encounter.objects
+        .filter(appointment__in=appts, check_out__isnull=False, procedures__isnull=False)
+        .values("procedures__id")
+        .annotate(subtotal=Sum("procedures__price_brl")))
+    revenue_total = float(sum(row["subtotal"] or 0 for row in proc_revenue_qs))
+
+    # auxiliares
     specialties = list(Provider.objects.values_list("specialty", flat=True).distinct())
     providers = Provider.objects.order_by("full_name").values("id", "full_name")
 
+    # contexto
     ctx = dict(
         total=total, completed=completed, cancelled=cancelled, no_show=no_show,
         completion_rate=completion_rate, no_show_rate=no_show_rate, avg_minutes=avg_minutes,
-        days=days,  # ainda mostramos p/ fallback
-        start=start or "", end=end or "", status=status or "", provider_id=provider_id or "",
+        days=days, start=start_str, end=end_str, status=status, provider_id=str(provider_id),
         specialties=specialties, providers=list(providers),
         daily_json=json.dumps(daily), by_spec_json=json.dumps(by_spec), top_dx_json=json.dumps(top_dx),
+        procedures_json=json.dumps(procedures_data), revenue_total=round(revenue_total, 2),
     )
-
     return render(request, "clinic/dashboard.html", ctx)
 
 @staff_member_required
@@ -104,9 +122,16 @@ def export_appointments_csv(request):
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="appointments.csv"'
     writer = csv.writer(response)
-    writer.writerow(["Data/Hora", "Paciente", "Sexo", "Nasc", "Médico", "Especialidade", "Status"])
+    writer.writerow(["Data/Hora", "Paciente", "Sexo", "Nasc", "Médico", "Especialidade", "Status", "Procedimentos"])
 
-    for a in qs.order_by("-scheduled_at"):
+    STATUS_DISPLAY = dict(Appointment.STATUS)  # evita get_status_display para agradar o linter
+
+    for a in qs.select_related("patient", "provider").order_by("-scheduled_at"):
+        enc = getattr(a, "encounter", None)  # evita aviso do Pylance
+        procs = []
+        if enc is not None:
+            procs = list(enc.procedures.values_list("name", flat=True))
+
         writer.writerow([
             a.scheduled_at.strftime("%Y-%m-%d %H:%M"),
             a.patient.full_name,
@@ -114,7 +139,7 @@ def export_appointments_csv(request):
             a.patient.birth_date.strftime("%Y-%m-%d") if a.patient.birth_date else "",
             a.provider.full_name,
             a.provider.specialty,
-            a.get_status_display(),
+            STATUS_DISPLAY.get(a.status, a.status),  # em vez de a.get_status_display()
+            " | ".join(procs),
         ])
-
     return response

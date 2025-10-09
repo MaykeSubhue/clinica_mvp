@@ -59,6 +59,7 @@
     <div class="card"><strong>Comparecimento</strong><div style="font-size:28px">{{ completion_rate }}%</div></div>
     <div class="card"><strong>No-show</strong><div style="font-size:28px">{{ no_show_rate }}%</div></div>
     <div class="card"><strong>Tempo médio</strong><div style="font-size:28px">{{ avg_minutes }} min</div></div>
+    <div class="card"><strong>Receita (estimada)</strong><div style="font-size:28px">R$ {{ revenue_total }}</div></div>
   </div>
 
   <div class="grid">
@@ -73,6 +74,10 @@
     <div class="card">
       <h3>Top diagnósticos</h3>
       <canvas id="dxChart"></canvas>
+    </div>
+    <div class="card">
+      <h3>Procedimentos no período</h3>
+      <canvas id="procChart"></canvas>
     </div>
   </div>
 
@@ -108,6 +113,17 @@
         datasets: [{ label: 'Casos', data: topDx.map(x => x.cnt) }]
       }
     });
+    <script>
+      const procs = {{ procedures_json|safe }};
+      new Chart(document.getElementById('procChart'), {
+        type: 'bar',
+        data: {
+          labels: procs.map(x => x.label),
+          datasets: [{ label: 'Qtd', data: procs.map(x => x.cnt) }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+      });
+    </script>  
   </script>
 </body>
 </html>

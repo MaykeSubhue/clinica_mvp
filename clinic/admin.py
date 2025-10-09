@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Patient, Provider, Diagnosis, Appointment, Encounter, Vitals
+from .models import Patient, Provider, Diagnosis, Appointment, Encounter, Vitals, Procedure, ProcedureCategory
+
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
@@ -33,3 +34,14 @@ class EncounterAdmin(admin.ModelAdmin):
 @admin.register(Vitals)
 class VitalsAdmin(admin.ModelAdmin):
     list_display = ("encounter", "height_cm", "weight_kg", "systolic", "diastolic", "heart_rate")
+    
+@admin.register(ProcedureCategory)
+class ProcedureCategoryAdmin(admin.ModelAdmin):
+    search_fields = ("name",)
+    list_display = ("name",)
+
+@admin.register(Procedure)
+class ProcedureAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "category", "duration_estimate_min", "requires_image_guidance", "price_brl")
+    list_filter = ("category", "requires_image_guidance")
+    search_fields = ("code", "name")

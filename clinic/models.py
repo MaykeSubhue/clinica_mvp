@@ -1,4 +1,32 @@
 from django.db import models
+from decimal import Decimal
+
+
+
+class Diagnosis(models.Model):
+    code = models.CharField(max_length=10)  # ex: J06.9
+    description = models.CharField(max_length=200)
+
+    def __str__(self): 
+        return f"{self.code} - {self.description}"
+
+class ProcedureCategory(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Procedure(models.Model):
+    code = models.CharField(max_length=20, unique=True)  # ex.: "PROC-LASER"
+    name = models.CharField(max_length=120)              # "Laser de Alta Potência"
+    category = models.ForeignKey(ProcedureCategory, on_delete=models.PROTECT)
+    duration_estimate_min = models.PositiveSmallIntegerField(default=20)
+    requires_image_guidance = models.BooleanField(default=False)  # US/fluoro
+    price_brl = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))  # MVP
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
 
 class Patient(models.Model):
     SEX_CHOICES = (("M", "Masculino"), ("F", "Feminino"), ("O", "Outro"))
@@ -25,16 +53,6 @@ class Provider(models.Model):
 
     def __str__(self): 
         return f"{self.full_name} ({self.specialty})"
-
-
-class Diagnosis(models.Model):
-    code = models.CharField(max_length=10)  # ex: J06.9
-    description = models.CharField(max_length=200)
-
-    def __str__(self): 
-        return f"{self.code} - {self.description}"
-
-
 class Appointment(models.Model):
     STATUS = (
         ("scheduled", "Agendada"),
@@ -63,6 +81,8 @@ class Encounter(models.Model):
     check_out = models.DateTimeField(null=True, blank=True)
     reason = models.CharField(max_length=200, blank=True)
     diagnoses = models.ManyToManyField('Diagnosis', blank=True)
+    procedures = models.ManyToManyField('Procedure', blank=True)
+
 
     @property
     def duration_minutes(self):

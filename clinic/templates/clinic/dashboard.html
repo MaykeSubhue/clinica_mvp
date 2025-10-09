@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Dashboard Clínica – MVP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .card { border: 1px solid #eee; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .filters { margin-bottom: 16px; display:flex; gap:12px; align-items:center; }
+    label { font-size: 14px; color: #333; }
+    select, input { padding: 6px 8px; }
+    canvas { max-height: 380px; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard Clínica – MVP</h1>
+
+  <form class="filters" method="get">
+  <label>Período (dias):
+    <input type="number" name="days" value="{{ days }}" min="7" max="365">
+  </label>
+  <span>ou</span>
+  <label>De:
+    <input type="date" name="start" value="{{ start }}">
+  </label>
+  <label>Até:
+    <input type="date" name="end" value="{{ end }}">
+  </label>
+  <label>Status:
+    <select name="status">
+      <option value="">Todos</option>
+      <option value="scheduled" {% if status == 'scheduled' %}selected{% endif %}>Agendada</option>
+      <option value="completed" {% if status == 'completed' %}selected{% endif %}>Concluída</option>
+      <option value="no_show" {% if status == 'no_show' %}selected{% endif %}>Não compareceu</option>
+      <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelada</option>
+    </select>
+  </label>
+  <label>Médico:
+    <select name="provider">
+      <option value="">Todos</option>
+      {% for p in providers %}
+        <option value="{{ p.id }}" {% if provider_id == p.id|stringformat:'s' %}selected{% endif %}>{{ p.full_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Aplicar</button>
+  <a href="{% url 'export_csv' %}?{{ request.GET.urlencode }}" style="text-decoration:none;padding:6px 10px;border:1px solid #ddd;border-radius:8px;">
+  Exportar CSV
+</a>
+</form>
+
+
+  <div class="kpis">
+    <div class="card"><strong>Consultas</strong><div style="font-size:28px">{{ total }}</div></div>
+    <div class="card"><strong>Comparecimento</strong><div style="font-size:28px">{{ completion_rate }}%</div></div>
+    <div class="card"><strong>No-show</strong><div style="font-size:28px">{{ no_show_rate }}%</div></div>
+    <div class="card"><strong>Tempo médio</strong><div style="font-size:28px">{{ avg_minutes }} min</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Consultas por dia</h3>
+      <canvas id="dailyChart"></canvas>
+    </div>
+    <div class="card">
+      <h3>Consultas por especialidade</h3>
+      <canvas id="specChart"></canvas>
+    </div>
+    <div class="card">
+      <h3>Top diagnósticos</h3>
+      <canvas id="dxChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const daily = {{ daily_json|safe }};
+    const bySpec = {{ by_spec_json|safe }};
+    const topDx = {{ top_dx_json|safe }};
+
+    // Daily
+    new Chart(document.getElementById('dailyChart'), {
+      type: 'line',
+      data: {
+        labels: daily.map(x => x.day),
+        datasets: [{ label: 'Consultas', data: daily.map(x => x.cnt) }]
+      }
+    });
+
+    // Por especialidade
+    new Chart(document.getElementById('specChart'), {
+      type: 'bar',
+      data: {
+        labels: bySpec.map(x => x.spec),
+        datasets: [{ label: 'Consultas', data: bySpec.map(x => x.cnt) }]
+      },
+      options: { indexAxis: 'y' }
+    });
+
+    // Top diagnósticos
+    new Chart(document.getElementById('dxChart'), {
+      type: 'bar',
+      data: {
+        labels: topDx.map(x => x.label),
+        datasets: [{ label: 'Casos', data: topDx.map(x => x.cnt) }]
+      }
+    });
+  </script>
+</body>
+</html>

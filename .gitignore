@@ -1,0 +1,11 @@
+# Ambiente virtual
+venv/
+__pycache__/
+*.pyc
+
+# Banco local
+db.sqlite3
+
+# Configurações locais
+*.log
+*.env

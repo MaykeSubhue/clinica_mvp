@@ -1,0 +1,67 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Entrar • Allevia Health</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{% static 'clinic/logo-allevia.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#D0C0B5; --bg-soft:#E7DDD6; --card:#fff; --text:#2D2A28; --muted:#6B625D;
+      --brand:#8B6F60; --brand-strong:#6E564A; --line:#EAE4E0;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; display:grid; place-items:center;
+      font-family:Inter, system-ui, Arial, sans-serif; color:var(--text);
+      background: linear-gradient(0deg, var(--bg-soft), var(--bg));
+    }
+    .card{
+      width:min(420px, 90vw); background:var(--card); border:1px solid var(--line);
+      border-radius:18px; padding:24px; box-shadow:0 10px 24px rgba(0,0,0,.07);
+    }
+    .brand{display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px}
+    .brand img{height:46px; width:auto; border-radius:10px}
+    h1{font-size:20px; margin:0; font-weight:700}
+    label{display:block; font-size:12px; color:var(--muted); margin:12px 0 6px}
+    input{
+      width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:14px;
+    }
+    .btn{
+      width:100%; margin-top:16px; padding:11px 14px; border-radius:10px; border:1px solid var(--brand);
+      background:var(--brand); color:#fff; font-weight:700; cursor:pointer;
+    }
+    .hint{margin-top:12px; font-size:12px; color:var(--muted); text-align:center}
+    .errorlist{color:#b00020; font-size:12px; list-style:none; padding:0; margin:8px 0 0}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <img src="{% static 'clinic/logo-allevia.png' %}" alt="Allevia Health">
+      <h1>Allevia Health</h1>
+      <div style="font-size:12px; color:var(--muted)">Acesso ao Dashboard</div>
+    </div>
+
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <ul class="errorlist">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+
+      <label for="id_username">Usuário</label>
+      {{ form.username }}
+
+      <label for="id_password">Senha</label>
+      {{ form.password }}
+
+      <button class="btn" type="submit">Entrar</button>
+      <div class="hint">Use seu usuário de staff cadastrado.</div>
+      <input type="hidden" name="next" value="{{ next|default:'/dashboard/' }}">
+    </form>
+  </main>
+</body>
+</html>

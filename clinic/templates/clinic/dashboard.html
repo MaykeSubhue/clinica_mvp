@@ -1,129 +1,268 @@
+{% load static %}
 <!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <title>Dashboard Clínica – MVP</title>
+  <title>Allevia Health — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Chart.js + fallback -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    if (!window.Chart) {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.js';
+      s.defer = true; document.head.appendChild(s);
+    }
+  </script>
+
+  <!-- Fonte clean -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="{% static 'clinic/logo-allevia.png' %}">
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
-    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .card { border: 1px solid #eee; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .filters { margin-bottom: 16px; display:flex; gap:12px; align-items:center; }
-    label { font-size: 14px; color: #333; }
-    select, input { padding: 6px 8px; }
-    canvas { max-height: 380px; }
+    :root{
+      /* Paleta Allevia (tons bege) */
+      --bg: #D0C0B5;          /* bege base da página */
+      --bg-soft: #E7DDD6;     /* superfícies */
+      --card: #FFFFFF;        /* cards */
+      --text: #2D2A28;        /* texto principal */
+      --muted: #6B625D;       /* texto suave */
+      --brand: #8B6F60;       /* destaque (bege amarronzado) */
+      --brand-strong:#6E564A; /* hover/dark */
+      --line: #EAE4E0;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+      margin:0; padding:0;
+      font-family: Inter, system-ui, -apple-system, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at -10% -10%, rgba(255,255,255,.35), transparent 60%),
+        radial-gradient(800px 400px at 110% 10%, rgba(255,255,255,.25), transparent 60%),
+        linear-gradient(0deg, var(--bg-soft), var(--bg));
+      min-height:100%;
+    }
+
+    .topbar{
+      display:flex; align-items:center; gap:16px;
+      padding:16px 20px;
+      background: rgba(255,255,255,.6);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid var(--line);
+      position: sticky; top:0; z-index:10;
+    }
+    .topbar img{ height:40px; width:auto; border-radius:8px; }
+    .title{ font-weight:700; letter-spacing:.4px; font-size:20px; }
+    .container{ max-width:1200px; margin:24px auto; padding:0 20px; }
+
+    .filters{
+      display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-bottom:18px;
+      background: rgba(255,255,255,.55);
+      border:1px solid var(--line); border-radius:14px; padding:12px;
+    }
+    label{ font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:6px; }
+    input, select{
+      padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fff;
+      min-width:120px;
+    }
+    .btn{
+      padding:9px 14px; border-radius:10px; border:1px solid var(--brand);
+      background: var(--brand); color:#fff; cursor:pointer; font-weight:600;
+    }
+    .btn.secondary{
+      background: transparent; color: var(--brand-strong); border-color: var(--brand-strong);
+    }
+    .kpis{
+      display:grid; gap:16px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-bottom:22px;
+    }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius:16px; padding:16px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.04);
+    }
+    .kpi-title{ font-size:13px; color:var(--muted); margin-bottom:6px; }
+    .kpi-value{ font-size:28px; font-weight:700; }
+
+    .grid{
+      display:grid; gap:18px; grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+
+    .card h3{ margin:0 0 10px 0; font-size:16px; }
+    canvas{ width:100%; max-height:380px; }
   </style>
 </head>
+
 <body>
-  <h1>Dashboard Clínica – MVP</h1>
+  <!-- Topbar com logo -->
+  <div class="topbar">
+    <img src="{% static 'clinic/logo-allevia.png' %}" alt="Allevia Health">
+    <div class="title" style="flex:1">Allevia Health — Dashboard Assistencial</div>
 
-  <form class="filters" method="get">
-  <label>Período (dias):
-    <input type="number" name="days" value="{{ days }}" min="7" max="365">
-  </label>
-  <span>ou</span>
-  <label>De:
-    <input type="date" name="start" value="{{ start }}">
-  </label>
-  <label>Até:
-    <input type="date" name="end" value="{{ end }}">
-  </label>
-  <label>Status:
-    <select name="status">
-      <option value="">Todos</option>
-      <option value="scheduled" {% if status == 'scheduled' %}selected{% endif %}>Agendada</option>
-      <option value="completed" {% if status == 'completed' %}selected{% endif %}>Concluída</option>
-      <option value="no_show" {% if status == 'no_show' %}selected{% endif %}>Não compareceu</option>
-      <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelada</option>
-    </select>
-  </label>
-  <label>Médico:
-    <select name="provider">
-      <option value="">Todos</option>
-      {% for p in providers %}
-        <option value="{{ p.id }}" {% if provider_id == p.id|stringformat:'s' %}selected{% endif %}>{{ p.full_name }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <button type="submit">Aplicar</button>
-  <a href="{% url 'export_csv' %}?{{ request.GET.urlencode }}" style="text-decoration:none;padding:6px 10px;border:1px solid #ddd;border-radius:8px;">
-  Exportar CSV
-</a>
-</form>
-
-
-  <div class="kpis">
-    <div class="card"><strong>Consultas</strong><div style="font-size:28px">{{ total }}</div></div>
-    <div class="card"><strong>Comparecimento</strong><div style="font-size:28px">{{ completion_rate }}%</div></div>
-    <div class="card"><strong>No-show</strong><div style="font-size:28px">{{ no_show_rate }}%</div></div>
-    <div class="card"><strong>Tempo médio</strong><div style="font-size:28px">{{ avg_minutes }} min</div></div>
-    <div class="card"><strong>Receita (estimada)</strong><div style="font-size:28px">R$ {{ revenue_total }}</div></div>
+    {% if request.user.is_authenticated %}
+      <div style="display:flex; align-items:center; gap:10px; font-size:13px;">
+        <span style="color:var(--muted)">Olá, {{ request.user.first_name|default:request.user.username }}</span>
+          <form action="{% url 'logout' %}" method="post" style="margin:0">
+            {% csrf_token %}
+            <button type="submit"
+              style="padding:8px 10px; border-radius:10px; border:1px solid var(--brand-strong);
+                    background:transparent; color:var(--brand-strong); cursor:pointer;">
+              Sair
+            </button>
+          </form>
+      </div>
+    {% endif %}
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <h3>Consultas por dia</h3>
-      <canvas id="dailyChart"></canvas>
+  <div class="container">
+
+    <!-- Filtros -->
+    <form class="filters" method="get">
+      <label>Período (dias)
+        <input type="number" name="days" value="{{ days }}" min="7" max="365">
+      </label>
+      <label>De
+        <input type="date" name="start" value="{{ start }}">
+      </label>
+      <label>Até
+        <input type="date" name="end" value="{{ end }}">
+      </label>
+      <label>Status
+        <select name="status">
+          <option value="">Todos</option>
+          <option value="scheduled" {% if status == 'scheduled' %}selected{% endif %}>Agendada</option>
+          <option value="completed" {% if status == 'completed' %}selected{% endif %}>Concluída</option>
+          <option value="no_show"   {% if status == 'no_show' %}selected{% endif %}>Não compareceu</option>
+          <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelada</option>
+        </select>
+      </label>
+      <label>Médico
+        <select name="provider">
+          <option value="">Todos</option>
+          {% for p in providers %}
+            <option value="{{ p.id }}" {% if provider_id == p.id|stringformat:'s' %}selected{% endif %}>{{ p.full_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn" type="submit">Aplicar</button>
+      <a class="btn secondary" href="{% url 'export_csv' %}?{{ request.GET.urlencode }}">Exportar CSV</a>
+    </form>
+
+    <!-- KPIs -->
+    <div class="kpis">
+      <div class="card"><div class="kpi-title">Consultas</div><div class="kpi-value">{{ total }}</div></div>
+      <div class="card"><div class="kpi-title">Comparecimento</div><div class="kpi-value">{{ completion_rate }}%</div></div>
+      <div class="card"><div class="kpi-title">No-show</div><div class="kpi-value">{{ no_show_rate }}%</div></div>
+      <div class="card"><div class="kpi-title">Tempo médio</div><div class="kpi-value">{{ avg_minutes }} min</div></div>
+      <div class="card"><div class="kpi-title">Receita (estimada)</div><div class="kpi-value">R$ {{ revenue_total }}</div></div>
     </div>
-    <div class="card">
-      <h3>Consultas por especialidade</h3>
-      <canvas id="specChart"></canvas>
-    </div>
-    <div class="card">
-      <h3>Top diagnósticos</h3>
-      <canvas id="dxChart"></canvas>
-    </div>
-    <div class="card">
-      <h3>Procedimentos no período</h3>
-      <canvas id="procChart"></canvas>
+
+    <!-- Gráficos -->
+    <div class="grid">
+      <div class="card">
+        <h3>Consultas por dia</h3>
+        <canvas id="dailyChart"></canvas>
+      </div>
+      <div class="card">
+        <h3>Consultas por especialidade</h3>
+        <canvas id="specChart"></canvas>
+      </div>
+      <div class="card">
+        <h3>Top diagnósticos</h3>
+        <canvas id="dxChart"></canvas>
+      </div>
+      <div class="card">
+        <h3>Procedimentos no período</h3>
+        <canvas id="procChart"></canvas>
+      </div>
     </div>
   </div>
 
+  <!-- Scripts dos gráficos -->
   <script>
-    const daily = {{ daily_json|safe }};
+    // Dados do Django
+    const daily  = {{ daily_json|safe }};
     const bySpec = {{ by_spec_json|safe }};
-    const topDx = {{ top_dx_json|safe }};
+    const topDx  = {{ top_dx_json|safe }};
+    const procs  = {{ procedures_json|safe }};
 
-    // Daily
-    new Chart(document.getElementById('dailyChart'), {
-      type: 'line',
-      data: {
-        labels: daily.map(x => x.day),
-        datasets: [{ label: 'Consultas', data: daily.map(x => x.cnt) }]
-      }
-    });
+    // Util: pegar cores do CSS
+    const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    const brand  = cssVar('--brand');
+    const muted  = cssVar('--muted');
 
-    // Por especialidade
-    new Chart(document.getElementById('specChart'), {
-      type: 'bar',
-      data: {
-        labels: bySpec.map(x => x.spec),
-        datasets: [{ label: 'Consultas', data: bySpec.map(x => x.cnt) }]
-      },
-      options: { indexAxis: 'y' }
-    });
+    window.addEventListener('load', function () {
+      if (!window.Chart) return console.error('Chart.js não carregou');
 
-    // Top diagnósticos
-    new Chart(document.getElementById('dxChart'), {
-      type: 'bar',
-      data: {
-        labels: topDx.map(x => x.label),
-        datasets: [{ label: 'Casos', data: topDx.map(x => x.cnt) }]
-      }
-    });
-    <script>
-      const procs = {{ procedures_json|safe }};
+      // Defaults suaves
+      Chart.defaults.color = muted;
+      Chart.defaults.borderColor = '#E8E2DE';
+      Chart.defaults.font.family = 'Inter, system-ui, Arial, sans-serif';
+
+      new Chart(document.getElementById('dailyChart'), {
+        type: 'line',
+        data: {
+          labels: daily.map(x => x.day),
+          datasets: [{
+            label: 'Consultas',
+            data: daily.map(x => x.cnt),
+            borderWidth: 2, tension: .25, borderColor: brand, pointRadius: 0, fill: false
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      new Chart(document.getElementById('specChart'), {
+        type: 'bar',
+        data: {
+          labels: bySpec.map(x => x.spec),
+          datasets: [{ label: 'Consultas', data: bySpec.map(x => x.cnt), backgroundColor: brand }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+      });
+
+      new Chart(document.getElementById('dxChart'), {
+        type: 'bar',
+        data: {
+          labels: topDx.map(x => x.label),
+          datasets: [{ label: 'Casos', data: topDx.map(x => x.cnt), backgroundColor: brand }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
       new Chart(document.getElementById('procChart'), {
         type: 'bar',
         data: {
           labels: procs.map(x => x.label),
-          datasets: [{ label: 'Qtd', data: procs.map(x => x.cnt) }]
+          datasets: [{ label: 'Qtd', data: procs.map(x => x.cnt), backgroundColor: brand }]
         },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
       });
-    </script>  
+    });
   </script>
+  <!-- Rodapé -->
+  <footer style="
+    margin-top:40px;
+    padding:18px 20px;
+    background:rgba(255,255,255,0.6);
+    border-top:1px solid var(--line);
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+    backdrop-filter: blur(4px);
+  ">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <img src="{% static 'clinic/logo-allevia.png' %}" alt="Allevia Health" style="height:26px;width:auto;opacity:.85;">
+      <div>© {{ now|date:"Y" }} Allevia Health — Tratamento da Dor e Bem-Estar</div>
+      <div>Atualizado em {{ now|date:"d/m/Y H:i" }} | MVP v1.0</div>
+    </div>
+  </footer>
 </body>
 </html>

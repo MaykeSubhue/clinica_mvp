@@ -92,6 +92,7 @@ def dashboard(request):
         daily_json=json.dumps(daily), by_spec_json=json.dumps(by_spec), top_dx_json=json.dumps(top_dx),
         procedures_json=json.dumps(procedures_data), revenue_total=round(revenue_total, 2),
     )
+    ctx["now"] = timezone.now() #type: ignore
     return render(request, "clinic/dashboard.html", ctx)
 
 @staff_member_required
@@ -104,8 +105,8 @@ def export_appointments_csv(request):
     provider_id = request.GET.get("provider")
 
     if start and end:
-        since = timezone.make_aware(datetime.combine(parse_date(start), datetime.min.time()))
-        until = timezone.make_aware(datetime.combine(parse_date(end), datetime.max.time()))
+        since = timezone.make_aware(datetime.combine(parse_date(start), datetime.min.time())) # type: ignore
+        until = timezone.make_aware(datetime.combine(parse_date(end), datetime.max.time())) # type: ignore
     else:
         since = timezone.now() - timedelta(days=days)
         until = timezone.now()

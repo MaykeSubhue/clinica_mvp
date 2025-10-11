@@ -10,7 +10,11 @@ from django.db.models import Sum
 import csv
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
-
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import user_passes_test
+from django.contrib import messages
+from .forms import StaffForm
+from django.shortcuts import render, redirect
 @staff_member_required
 def dashboard(request):
     # --- filtros ---
@@ -125,22 +129,22 @@ def export_appointments_csv(request):
     writer = csv.writer(response)
     writer.writerow(["Data/Hora", "Paciente", "Sexo", "Nasc", "Médico", "Especialidade", "Status", "Procedimentos"])
 
-    STATUS_DISPLAY = dict(Appointment.STATUS)  # evita get_status_display para agradar o linter
+@user_passes_test(lambda u: u.is_superuser)  # só superuser pode cadastrar
+def staff_new(request):
+    if request.method == "POST":
+        form = StaffForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.is_active = True
+            user.is_staff = True
+            user.set_password(form.cleaned_data["password"])
+            user.save()
+            messages.success(request, f"Funcionário '{user.username}' criado com sucesso.")
+            return redirect("dashboard")
+        else:
+            messages.error(request, "Corrija os campos indicados.")
+    else:
+        form = StaffForm()
 
-    for a in qs.select_related("patient", "provider").order_by("-scheduled_at"):
-        enc = getattr(a, "encounter", None)  # evita aviso do Pylance
-        procs = []
-        if enc is not None:
-            procs = list(enc.procedures.values_list("name", flat=True))
+    return render(request, "clinic/staff_new.html", {"form": form})
 
-        writer.writerow([
-            a.scheduled_at.strftime("%Y-%m-%d %H:%M"),
-            a.patient.full_name,
-            a.patient.sex,
-            a.patient.birth_date.strftime("%Y-%m-%d") if a.patient.birth_date else "",
-            a.provider.full_name,
-            a.provider.specialty,
-            STATUS_DISPLAY.get(a.status, a.status),  # em vez de a.get_status_display()
-            " | ".join(procs),
-        ])
-    return response

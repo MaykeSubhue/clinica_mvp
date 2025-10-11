@@ -1,0 +1,107 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Novo Funcionário • Allevia Health</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{% static 'clinic/logo-allevia.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#D0C0B5; --bg-soft:#E7DDD6; --card:#fff; --text:#2D2A28; --muted:#6B625D;
+      --brand:#8B6F60; --brand-strong:#6E564A; --line:#EAE4E0;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter, system-ui, Arial, sans-serif; color:var(--text);
+         background: linear-gradient(0deg, var(--bg-soft), var(--bg));}
+    .topbar{display:flex;align-items:center;gap:12px;padding:14px 18px;background:rgba(255,255,255,.6);
+            border-bottom:1px solid var(--line); position:sticky; top:0}
+    .topbar img{height:36px;border-radius:8px}
+    .title{font-weight:700}
+    .container{max-width:800px;margin:22px auto;padding:0 18px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
+          box-shadow:0 6px 18px rgba(0,0,0,.05)}
+    form label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    form input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width: 720px){ .row{grid-template-columns:1fr;} }
+    .btnbar{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+    .btn{padding:10px 14px;border-radius:10px;border:1px solid var(--brand);background:var(--brand);color:#fff;cursor:pointer;font-weight:700}
+    .btn.secondary{background:transparent;color:var(--brand-strong);border-color:var(--brand-strong);text-decoration:none}
+    .errorlist{color:#b00020;font-size:12px;margin:6px 0;list-style:disc;padding-left:16px}
+    .msg{margin-bottom:12px;font-size:13px}
+    .msg.success{color:#0a7d28}
+    .msg.error{color:#b00020}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <img src="{% static 'clinic/logo-allevia.png' %}" alt="Allevia">
+    <div class="title" style="flex:1">Novo Funcionário</div>
+    <a class="btn secondary" href="{% url 'dashboard' %}">Voltar ao Dashboard</a>
+  </div>
+
+  <div class="container">
+    {% if messages %}
+      {% for m in messages %}
+        <div class="msg {{ m.tags }}">{{ m }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if messages %}
+            {% for m in messages %}
+            <div class="msg {{ m.tags }}">{{ m }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% if form.non_field_errors %}
+            <ul class="errorlist">
+            {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+            </ul>
+        {% endif %}
+
+        <label for="{{ form.username.id_for_label }}">Usuário</label>
+        {{ form.username.errors }}
+        {{ form.username }}
+
+        <div class="row">
+            <div>
+            <label for="{{ form.first_name.id_for_label }}">Nome</label>
+            {{ form.first_name.errors }}
+            {{ form.first_name }}
+            </div>
+            <div>
+            <label for="{{ form.last_name.id_for_label }}">Sobrenome</label>
+            {{ form.last_name.errors }}
+            {{ form.last_name }}
+            </div>
+        </div>
+
+        <label for="{{ form.email.id_for_label }}">E-mail</label>
+        {{ form.email.errors }}
+        {{ form.email }}
+
+        <div class="row">
+            <div>
+            <label for="{{ form.password.id_for_label }}">Senha</label>
+            {{ form.password.errors }}
+            {{ form.password }}
+            </div>
+        </div>
+
+        <div class="btnbar">
+            <a class="btn secondary" href="{% url 'dashboard' %}">Cancelar</a>
+            <button class="btn" type="submit">Criar funcionário</button>
+        </div>
+        </form>
+
+    </div>
+  </div>
+</body>
+</html>

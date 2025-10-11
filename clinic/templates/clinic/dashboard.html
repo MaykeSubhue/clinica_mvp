@@ -106,20 +106,32 @@
     <img src="{% static 'clinic/logo-allevia.png' %}" alt="Allevia Health">
     <div class="title" style="flex:1">Allevia Health — Dashboard Assistencial</div>
 
-    {% if request.user.is_authenticated %}
-      <div style="display:flex; align-items:center; gap:10px; font-size:13px;">
-        <span style="color:var(--muted)">Olá, {{ request.user.first_name|default:request.user.username }}</span>
-          <form action="{% url 'logout' %}" method="post" style="margin:0">
-            {% csrf_token %}
-            <button type="submit"
-              style="padding:8px 10px; border-radius:10px; border:1px solid var(--brand-strong);
-                    background:transparent; color:var(--brand-strong); cursor:pointer;">
-              Sair
-            </button>
-          </form>
-      </div>
-    {% endif %}
+{% if request.user.is_authenticated %}
+  <div style="display:flex; align-items:center; gap:10px; font-size:13px;">
+    <span style="color:var(--muted)">
+      Olá, {{ request.user.first_name|default:request.user.username }}
+    </span>
+
+    <!-- Botão Novo Funcionário -->
+    <a href="{% url 'staff_new' %}"
+       style="padding:8px 10px; border-radius:10px; border:1px solid var(--brand);
+              background:var(--brand); color:#fff; text-decoration:none; font-weight:600;">
+      Novo Funcionário
+    </a>
+
+    <!-- Botão Sair -->
+    <form action="{% url 'logout' %}" method="post" style="margin:0">
+      {% csrf_token %}
+      <button type="submit"
+        style="padding:8px 10px; border-radius:10px; border:1px solid var(--brand-strong);
+               background:transparent; color:var(--brand-strong); cursor:pointer;">
+        Sair
+      </button>
+    </form>
   </div>
+{% endif %}
+</div>
+
 
   <div class="container">
 

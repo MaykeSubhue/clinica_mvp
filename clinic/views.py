@@ -149,9 +149,7 @@ def export_appointments_csv(request):
 
 #     return render(request, "clinic/staff_new.html", {"form": form})
 
-from .forms import StaffSignupForm
-from django.contrib import messages
-from django.shortcuts import render, redirect
+
 
 def staff_signup(request):
     if request.method == "POST":

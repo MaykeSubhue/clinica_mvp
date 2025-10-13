@@ -59,6 +59,14 @@
       {{ form.password }}
 
       <button class="btn" type="submit">Entrar</button>
+        <div style="margin-top:14px; text-align:center;">
+          <a href="{% url 'staff_signup' %}"
+            style="display:inline-block; padding:12px 14px; border-radius:12px;
+                    border:1px solid rgba(0,0,0,.12); text-decoration:none; color:#494949;
+                    background:#fff;">
+            Criar login
+          </a>
+        </div>
       <div class="hint">Use seu usuário de staff cadastrado.</div>
       <input type="hidden" name="next" value="{{ next|default:'/dashboard/' }}">
     </form>

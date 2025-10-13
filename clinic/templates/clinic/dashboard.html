@@ -112,12 +112,12 @@
       Olá, {{ request.user.first_name|default:request.user.username }}
     </span>
 
-    <!-- Botão Novo Funcionário -->
-    <a href="{% url 'staff_new' %}"
+    {% comment %} <!-- Botão Novo Funcionário -->
+    <a href="{% url 'staff_signup' %}"
        style="padding:8px 10px; border-radius:10px; border:1px solid var(--brand);
               background:var(--brand); color:#fff; text-decoration:none; font-weight:600;">
       Novo Funcionário
-    </a>
+    </a> {% endcomment %}
 
     <!-- Botão Sair -->
     <form action="{% url 'logout' %}" method="post" style="margin:0">

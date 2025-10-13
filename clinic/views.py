@@ -13,8 +13,9 @@ from django.utils.dateparse import parse_date
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
-from .forms import StaffForm
+from .forms import StaffSignupForm
 from django.shortcuts import render, redirect
+
 @staff_member_required
 def dashboard(request):
     # --- filtros ---
@@ -129,22 +130,42 @@ def export_appointments_csv(request):
     writer = csv.writer(response)
     writer.writerow(["Data/Hora", "Paciente", "Sexo", "Nasc", "Médico", "Especialidade", "Status", "Procedimentos"])
 
-@user_passes_test(lambda u: u.is_superuser)  # só superuser pode cadastrar
-def staff_new(request):
-    if request.method == "POST":
-        form = StaffForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.is_active = True
-            user.is_staff = True
-            user.set_password(form.cleaned_data["password"])
-            user.save()
-            messages.success(request, f"Funcionário '{user.username}' criado com sucesso.")
-            return redirect("dashboard")
-        else:
-            messages.error(request, "Corrija os campos indicados.")
-    else:
-        form = StaffForm()
+# @user_passes_test(lambda u: u.is_superuser)  # só superuser pode cadastrar
+# def staff_new(request):
+#     if request.method == "POST":
+#         form = StaffForm(request.POST)
+#         if form.is_valid():
+#             user = form.save(commit=False)
+#             user.is_active = True
+#             user.is_staff = True
+#             user.set_password(form.cleaned_data["password"])
+#             user.save()
+#             messages.success(request, f"Funcionário '{user.username}' criado com sucesso.")
+#             return redirect("dashboard")
+#         else:
+#             messages.error(request, "Corrija os campos indicados.")
+#     else:
+#         form = StaffForm()
 
-    return render(request, "clinic/staff_new.html", {"form": form})
+#     return render(request, "clinic/staff_new.html", {"form": form})
+
+from .forms import StaffSignupForm
+from django.contrib import messages
+from django.shortcuts import render, redirect
+
+def staff_signup(request):
+    if request.method == "POST":
+        form = StaffSignupForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Conta criada! Você já pode fazer login.")
+            return redirect("login")
+        else:
+            messages.error(request, "Corrija os campos destacados.")
+    else:
+        form = StaffSignupForm()
+
+    return render(request, "registration/signup.html", {"form": form})
+
+
 

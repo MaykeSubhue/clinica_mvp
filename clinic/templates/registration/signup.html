@@ -1,0 +1,86 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Criar login • Allevia Health</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{ --areia:#7e7871; --offwhite:#dedbd6; --line:rgba(0,0,0,.12); }
+    body{
+      margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background:url("{% static 'clinic/bg-login.jpg' %}") center/cover no-repeat fixed;
+      font-family:Inter, system-ui, Arial, sans-serif; position:relative; color:#2D2A28;
+    }
+    body::before{ content:""; position:fixed; inset:0;
+      background:linear-gradient(180deg, rgba(222,219,214,.78), rgba(208,192,181,.78));
+    }
+    .wrap{ position:relative; z-index:1; width:100%; max-width:560px; padding:20px; }
+    .card{ background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:18px;
+           box-shadow:0 20px 60px rgba(0,0,0,.18); padding:22px; backdrop-filter:blur(2px); }
+    .brand{ display:flex; justify-content:center; margin-bottom:8px; }
+    .brand img{ height:26px; }
+    h1{ text-align:center; margin:6px 0 12px; font-size:22px }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+    @media (max-width:540px){ .row{ grid-template-columns:1fr; } }
+    label{ display:block; font-size:13px; color:#6B625D; margin:10px 0 6px }
+    input{ width:100%; padding:12px 14px; border:1px solid var(--line); border-radius:12px }
+    .btn{ width:100%; padding:12px 14px; border-radius:12px; border:1px solid #6E564A;
+          background:#6E564A; color:#fff; font-weight:700; cursor:pointer; margin-top:12px }
+    .helper{ text-align:center; font-size:12px; color:#6B625D; margin-top:10px }
+    .errorlist{ color:#b00020; font-size:12px; margin:6px 0; list-style:disc; padding-left:16px }
+    .msg{ font-size:13px; margin-bottom:10px }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand"><img src="{% static 'clinic/logo-allevia.png' %}" alt="Allevia"></div>
+      <h1>Criar login</h1>
+
+      {% if messages %}
+        {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <ul class="errorlist">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        <label for="{{ form.username.id_for_label }}">Usuário</label>
+        {{ form.username.errors }} {{ form.username }}
+
+        <div class="row">
+          <div>
+            <label for="{{ form.first_name.id_for_label }}">Nome</label>
+            {{ form.first_name.errors }} {{ form.first_name }}
+          </div>
+          <div>
+            <label for="{{ form.last_name.id_for_label }}">Sobrenome</label>
+            {{ form.last_name.errors }} {{ form.last_name }}
+          </div>
+        </div>
+
+        <label for="{{ form.email.id_for_label }}">E-mail</label>
+        {{ form.email.errors }} {{ form.email }}
+
+        <div class="row">
+          <div>
+            <label for="{{ form.password1.id_for_label }}">Senha</label>
+            {{ form.password1.errors }} {{ form.password1 }}
+          </div>
+          <div>
+            <label for="{{ form.password2.id_for_label }}">Confirmar senha</label>
+            {{ form.password2.errors }} {{ form.password2 }}
+          </div>
+        </div>
+
+        <button class="btn" type="submit">Criar conta</button>
+        <div class="helper">Já tem acesso? <a href="{% url 'login' %}">Entrar</a></div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from clinic.views import dashboard, export_appointments_csv, staff_new
+from clinic.views import dashboard, export_appointments_csv, staff_signup
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -32,6 +32,7 @@ urlpatterns = [
     path("logout/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),
 
     # Funcionários
-    path("staff/novo/", staff_new, name="staff_new"),
+    # path("staff/novo/", staff_new, name="staff_new"),
+    path("cadastro/",  staff_signup, name="staff_signup") # público (novo)
     ]
 

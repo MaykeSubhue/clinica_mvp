@@ -1,6 +1,11 @@
 from django.contrib import admin
 from .models import Patient, Provider, Diagnosis, Appointment, Encounter, Vitals, Procedure, ProcedureCategory
+from .models import CarePlan, CareStep, PainAssessment
 
+
+admin.site.register(CarePlan)
+admin.site.register(CareStep)
+admin.site.register(PainAssessment)
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
@@ -34,7 +39,7 @@ class EncounterAdmin(admin.ModelAdmin):
 @admin.register(Vitals)
 class VitalsAdmin(admin.ModelAdmin):
     list_display = ("encounter", "height_cm", "weight_kg", "systolic", "diastolic", "heart_rate")
-    
+
 @admin.register(ProcedureCategory)
 class ProcedureCategoryAdmin(admin.ModelAdmin):
     search_fields = ("name",)

@@ -14,25 +14,35 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
+# clinica_mvp/urls.py
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from clinic.views import dashboard, export_appointments_csv, staff_signup
+
+from clinic.views import (
+    dashboard,
+    export_appointments_csv,
+    staff_signup,                   # existe no seu views.py
+    protocols_dashboard,         # se você já criou
+    patient_timeline,            # se você já criou
+    # staff_signup,              # comente/retire se NÃO criou essa view
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-
-    # Dashboard
     path("dashboard/", dashboard, name="dashboard"),
     path("dashboard/export/", export_appointments_csv, name="export_csv"), # type: ignore
 
-    # Auth
-    path("login/",  auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
+    path("login/",  auth_views.LoginView.as_view(
+        template_name="registration/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),
 
-    # Funcionários
-    # path("staff/novo/", staff_new, name="staff_new"),
-    path("cadastro/",  staff_signup, name="staff_signup") # público (novo)
-    ]
+    path("staff/novo/", staff_signup, name="staff_signup"),  # vírgula aqui!
+    # Se AINDA não implementou a view staff_signup, deixe comentado:
+    # path("cadastro/", staff_signup, name="staff_signup"),
+    
+    # Opcional: só mantenha se as views já existem
+    # path("dashboard/protocolos/", protocols_dashboard, name="protocols_dashboard"),
+    # path("pacientes/<int:patient_id>/linha-do-tempo/", patient_timeline, name="patient_timeline"),
+]
 

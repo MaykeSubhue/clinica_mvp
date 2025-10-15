@@ -1,0 +1,71 @@
+{% load static %}
+<!doctype html><html lang="pt-br"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Protocolos e Dor • Allevia</title>
+<script src="{% static 'clinic/js/chart.umd.min.js' %}"></script>
+<style>
+  body{font-family:Inter,system-ui,Arial;margin:20px;background:#dedbd6}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  h2{margin:0 0 8px}
+  canvas{max-height:380px}
+</style></head><body>
+<h1>Protocolos & Dor</h1>
+
+<div class="grid">
+  <div class="card">
+    <h2>Redução média (baseline → semana 8) por protocolo</h2>
+    <canvas id="barRed"></canvas>
+  </div>
+  <div class="card">
+    <h2>Procedimentos mais realizados</h2>
+    <canvas id="barTop"></canvas>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Curva média de dor por protocolo (12 semanas)</h2>
+  <canvas id="lineCurves"></canvas>
+</div>
+
+<script>
+  const reductions = {{ reductions_json|safe }};
+  const topProcs   = {{ top_procs_json|safe }};
+
+  // barras de redução
+  new Chart(document.getElementById('barRed'), {
+    type: 'bar',
+    data: {
+      labels: reductions.map(r => r.protocol),
+      datasets: [{ label: 'Δ dor (pontos)', data: reductions.map(r => r.delta) }]
+    },
+    options: { responsive:true, maintainAspectRatio:false }
+  });
+
+  // top procedimentos
+  new Chart(document.getElementById('barTop'), {
+    type: 'bar',
+    data: {
+      labels: topProcs.map(x => x.label),
+      datasets: [{ label: 'Qtd', data: topProcs.map(x => x.cnt) }]
+    },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false }
+  });
+
+  // curvas por protocolo
+  const ds = reductions.map(r => ({
+    label: r.protocol,
+    data: r.curve.map(p => ({x:p.week, y:p.score})),
+    tension:.3
+  }));
+  new Chart(document.getElementById('lineCurves'), {
+    type: 'line',
+    data: { datasets: ds },
+    options: {
+      parsing:false,
+      scales:{ x:{ title:{display:true,text:'Semana'} }, y:{ min:0,max:10, title:{display:true,text:'Dor (0-10)'} } },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+</script>
+</body></html>

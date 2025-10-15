@@ -1,6 +1,6 @@
 from django.db import models
 from decimal import Decimal
-
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Diagnosis(models.Model):
@@ -93,6 +93,62 @@ class Encounter(models.Model):
 
     def __str__(self):
         return f"Atendimento de {self.patient} com {self.provider} em {self.check_in:%d/%m/%Y}"
+
+class CarePlan(models.Model):
+    PROTOCOLS = [
+        ("LASER", "Laser de Alta Potência / Laserterapia"),
+        ("INFIL", "Infiltrações Articulares/Musculares"),
+        ("BLOCK", "Bloqueios Simpáticos / Neuroaxiais"),
+        ("RF",    "Radiofrequência Convencional/Pulsada"),
+        ("ESWT",  "Ondas de Choque Extracorpóreas (ESWT)"),
+    ]
+    patient = models.ForeignKey("Patient", on_delete=models.CASCADE, related_name="care_plans")
+    diagnosis = models.CharField(max_length=120, blank=True)
+    protocol = models.CharField(max_length=10, choices=PROTOCOLS)
+    start_date = models.DateField()
+    goal_pain_score = models.PositiveSmallIntegerField(default=3,
+                       validators=[MinValueValidator(0), MaxValueValidator(10)])
+
+    @property
+    def protocol_label(self) -> str:
+        # evita o alerta do Pylance
+        return dict(self.PROTOCOLS).get(self.protocol, self.protocol)
+
+    def __str__(self) -> str:
+        return f"{self.patient.full_name} • {self.protocol_label}"
+
+
+class CareStep(models.Model):
+    """
+    Etapa dentro do plano: usualmente um procedimento.
+    """
+    care_plan = models.ForeignKey(CarePlan, on_delete=models.CASCADE, related_name="steps")
+    procedure = models.ForeignKey("Procedure", on_delete=models.PROTECT, related_name="care_steps")
+    scheduled_at = models.DateField()
+    done_at = models.DateField(null=True, blank=True)
+    notes = models.CharField(max_length=200, blank=True)
+
+    def __str__(self):
+        return f"{self.care_plan} • {self.procedure.name}"
+
+
+class PainAssessment(models.Model):
+    """
+    Ponto na linha do tempo de dor (0 a 10).
+    Pode estar associado a um encontro específico, mas não é obrigatório.
+    """
+    patient = models.ForeignKey("Patient", on_delete=models.CASCADE, related_name="pain_assessments")
+    encounter = models.ForeignKey("Encounter", on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="pain_assessments")
+    recorded_at = models.DateField()
+    score = models.PositiveSmallIntegerField(validators=[MinValueValidator(0), MaxValueValidator(10)])
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["recorded_at"]
+
+    def __str__(self):
+        return f"{self.patient.full_name} • {self.recorded_at} = {self.score}"
 
 
 class Vitals(models.Model):

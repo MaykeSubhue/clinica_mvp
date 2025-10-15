@@ -2,9 +2,14 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from faker import Faker
 import random
+from datetime import date
 from datetime import timedelta
 from clinic.models import Patient, Provider, Diagnosis, Appointment, Encounter, Vitals, Procedure, ProcedureCategory
-
+from clinic.models import (
+    Patient, Provider, Diagnosis, Appointment, Encounter, Vitals,
+    Procedure, ProcedureCategory,
+    CarePlan, CareStep, PainAssessment,  # <-- NOVOS
+)
 
 class Command(BaseCommand):
     help = "Gera dados fake para demo da clínica"
@@ -131,7 +136,7 @@ class Command(BaseCommand):
                         else:
                             # 15% 2 procedimentos combinados (ex.: infiltração + laser ou RF sozinha)
                             enc.procedures.add(*random.sample(procedures, k=2))
-                                               
+
                         enc.diagnoses.add(*random.sample(diagnoses, k=random.choice([1,1,2])))
                         Vitals.objects.create(
                             encounter=enc,
@@ -147,3 +152,78 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Seed OK: {len(patients)} pacientes, {len(providers)} profissionais, {total_appts} consultas."
         ))
+    # mapeia os seus procedimentos criados acima
+        proc_map = {
+            "LASER": Procedure.objects.get(code="PROC-LASER"),
+            "INFIL": Procedure.objects.get(code="PROC-INFIL"),
+            "BLOCK": Procedure.objects.get(code="PROC-BLOQ"),
+            "RF":    Procedure.objects.get(code="PROC-RF"),
+            "ESWT":  Procedure.objects.get(code="PROC-ESWT"),
+        }
+
+        # efeito médio semanal por protocolo (queda em pontos na escala 0–10)
+        weekly_effect = {
+            "LASER": 0.25,  # resposta lenta e cumulativa
+            "INFIL": 0.60,  # resposta mais rápida
+            "BLOCK": 0.70,  # neuropática com boa resposta
+            "RF":    0.80,  # grande queda pós-aplicação
+            "ESWT":  0.35,  # progressiva
+        }
+
+        today = timezone.now().date()
+
+        # pega uma amostra de pacientes (para não exagerar a base)
+        amostra = random.sample(patients, k=min(120, len(patients)))
+
+        for pt in amostra:
+            proto = random.choice(list(proc_map.keys()))
+            start = today - timedelta(days=random.randint(30, 120))
+
+            plan = CarePlan.objects.create(
+                patient=pt,
+                diagnosis=random.choice([
+                    "Lombalgia crônica", "Osteoartrite de joelho",
+                    "Cervicalgia", "Dor miofascial"
+                ]),
+                protocol=proto,
+                start_date=start,
+                goal_pain_score=random.choice([2, 3, 4]),
+            )
+
+            # 3 a 5 etapas do procedimento do protocolo
+            steps = random.randint(3, 5)
+            for k in range(steps):
+                step_date = start + timedelta(weeks=k)
+                CareStep.objects.create(
+                    care_plan=plan,
+                    procedure=proc_map[proto],
+                    scheduled_at=step_date,
+                    done_at=step_date,
+                    notes="Etapa planejada e realizada.",
+                )
+
+                # tenta vincular o procedimento a um encontro real daquele paciente na mesma data
+                enc = (Encounter.objects
+                    .filter(patient=pt,
+                            check_out__date=step_date)  # precisa que check_out exista
+                    .order_by('check_out')
+                    .first())
+                if enc:
+                    enc.procedures.add(proc_map[proto])
+
+            # linha do tempo da dor: 10–12 semanas
+            baseline = random.randint(7, 10)
+            current = baseline
+            semanas = random.randint(10, 12)
+
+            for w in range(semanas):
+                drop = weekly_effect[proto] + random.uniform(-0.15, 0.15)
+                drop = max(drop, 0)
+                current = max(0, current - drop)
+
+                PainAssessment.objects.create(
+                    patient=pt,
+                    recorded_at=start + timedelta(weeks=w),
+                    score=round(current),
+                    notes=f"Semana {w+1} • {proto}",
+                )

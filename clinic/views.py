@@ -1,20 +1,20 @@
-from django.contrib.admin.views.decorators import staff_member_required
 from datetime import timedelta, datetime, time
-import json
-from django.db.models import Count
-from django.db.models.functions import TruncDate
-from django.shortcuts import render
-from django.utils import timezone
-from .models import Appointment, Encounter, Provider, Diagnosis, Procedure
-from django.db.models import Sum
-import csv
-from django.http import HttpResponse
-from django.utils.dateparse import parse_date
-from django.contrib.auth.models import User
-from django.contrib.auth.decorators import user_passes_test
+import csv, json
+
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Count, Sum
+from django.db.models.functions import TruncDate
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+
 from .forms import StaffSignupForm
-from django.shortcuts import render, redirect
+from .models import (
+    Appointment, Encounter, Provider, Diagnosis, Procedure,
+    CarePlan, CareStep, PainAssessment, Patient
+)
 
 @staff_member_required
 def dashboard(request):
@@ -130,25 +130,97 @@ def export_appointments_csv(request):
     writer = csv.writer(response)
     writer.writerow(["Data/Hora", "Paciente", "Sexo", "Nasc", "Médico", "Especialidade", "Status", "Procedimentos"])
 
-# @user_passes_test(lambda u: u.is_superuser)  # só superuser pode cadastrar
-# def staff_new(request):
-#     if request.method == "POST":
-#         form = StaffForm(request.POST)
-#         if form.is_valid():
-#             user = form.save(commit=False)
-#             user.is_active = True
-#             user.is_staff = True
-#             user.set_password(form.cleaned_data["password"])
-#             user.save()
-#             messages.success(request, f"Funcionário '{user.username}' criado com sucesso.")
-#             return redirect("dashboard")
-#         else:
-#             messages.error(request, "Corrija os campos indicados.")
-#     else:
-#         form = StaffForm()
+@staff_member_required
+def protocols_dashboard(request):
+    """
+    KPIs de dor: redução média por protocolo e curva média ao longo das semanas.
+    """
+    # redução média (baseline - semana 8) por protocolo
+    data_reduc = []
+    for code, label in CarePlan.PROTOCOLS:
+        plans = CarePlan.objects.filter(protocol=code)
+        if not plans.exists():
+            continue
 
-#     return render(request, "clinic/staff_new.html", {"form": form})
+        reductions = []
+        weekly_points = {}  # média por semana (0..11)
 
+        for cp in plans:
+            pa = list(PainAssessment.objects.filter(patient=cp.patient,
+                                                    recorded_at__gte=cp.start_date)
+                      .order_by("recorded_at"))
+            if not pa:
+                continue
+            # baseline = primeira medida
+            base = pa[0].score
+            # pega até 12 pontos
+            for i, p in enumerate(pa[:12]):
+                weekly_points.setdefault(i, []).append(p.score)
+            # redução até semana 8 (se houver)
+            if len(pa) > 8:
+                reductions.append(base - pa[8].score)
+            elif len(pa) > 1:
+                reductions.append(base - pa[-1].score)
+
+        # médias
+        mean_curve = [{"week": i, "score": round(sum(v)/len(v), 2)}
+                      for i, v in sorted(weekly_points.items())]
+        mean_reduction = round(sum(reductions)/len(reductions), 2) if reductions else 0.0
+
+        data_reduc.append({"protocol": label, "delta": mean_reduction, "curve": mean_curve})
+
+    # top procedimentos por contagem no período inteiro (apoio)
+    procs = (CareStep.objects.values("procedure__name")
+             .annotate(cnt=Count("id")).order_by("-cnt")[:8])
+    top_procs = [{"label": r["procedure__name"], "cnt": r["cnt"]} for r in procs]
+
+    ctx = {
+        "reductions_json": json.dumps(data_reduc),
+        "top_procs_json": json.dumps(top_procs),
+    }
+    return render(request, "clinic/protocols_dashboard.html", ctx)
+
+@staff_member_required
+def patient_timeline(request, patient_id: int):
+    patient = get_object_or_404(Patient, pk=patient_id)
+
+    plans = list(
+    CarePlan.objects.filter(patient=patient).order_by("-start_date")
+)
+
+    pain_qs = (
+        PainAssessment.objects
+        .filter(patient=patient)
+        .values("recorded_at", "score")
+        .order_by("recorded_at")
+    )
+
+    pain_json = json.dumps([
+        {"date": p["recorded_at"].strftime("%Y-%m-%d"), "score": p["score"]}
+        for p in pain_qs
+    ])
+
+    steps_qs = (
+        CareStep.objects
+        .filter(care_plan__patient=patient)
+        .order_by("scheduled_at")
+        .values("scheduled_at", "done_at", "procedure__name")
+    )
+    steps_json = json.dumps([
+        {
+            "date": (s["done_at"] or s["scheduled_at"]).strftime("%Y-%m-%d"),
+            "proc": s["procedure__name"],
+        }
+        for s in steps_qs
+    ])
+
+    ctx = {
+        "patient": patient,
+        "plans": plans,
+        "pain_json": pain_json,
+        "steps_json": steps_json,
+    }
+    return render(request, "clinic/patient_timeline.html", ctx)
 
 
 def staff_signup(request):

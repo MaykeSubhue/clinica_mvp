@@ -1,0 +1,50 @@
+{% load static %}
+<!doctype html><html lang="pt-br"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linha do tempo • {{ patient.full_name }}</title>
+<script src="{% static 'clinic/js/chart.umd.min.js' %}"></script>
+<style>
+  body{font-family:Inter,system-ui,Arial;margin:20px;background:#f6f4f1}
+  .card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  h1{margin:0 0 12px}
+  .muted{color:#6b625d}
+  canvas{max-height:420px}
+</style></head><body>
+<h1>{{ patient.full_name }}</h1>
+<div class="muted">Planos ativos/anteriores: {{ plans|length }}</div>
+
+<div class="card" style="margin-top:12px">
+  <h3>Evolução da dor</h3>
+  <canvas id="painLine"></canvas>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <h3>Procedimentos ao longo do tempo</h3>
+  <canvas id="procDots"></canvas>
+</div>
+
+<script>
+  const pain = {{ pain_json|safe }};
+  const steps = {{ steps_json|safe }};
+
+  new Chart(document.getElementById('painLine'), {
+    type:'line',
+    data:{ labels:pain.map(p=>p.date),
+           datasets:[{label:'Dor (0-10)', data:pain.map(p=>p.score), tension:.3}]},
+    options:{ scales:{ y:{min:0,max:10} }, responsive:true, maintainAspectRatio:false }
+  });
+
+  // marca os procedimentos como pontos (eixo Y categórico por procedimento)
+  const labels = [...new Set(steps.map(s=>s.proc))];
+  const data = steps.map(s => ({x:s.date, y:labels.indexOf(s.proc)}));
+  new Chart(document.getElementById('procDots'), {
+    type:'scatter',
+    data:{ datasets:[{label:'Procedimentos', data}] },
+    options:{
+      parsing:false,
+      scales:{ y:{ type:'category', labels }, x:{ type:'time', time:{unit:'week'} } },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+</script>
+</body></html>

@@ -9,7 +9,6 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-
 from .forms import StaffSignupForm
 from .models import (
     Appointment, Encounter, Provider, Diagnosis, Procedure,
@@ -88,6 +87,57 @@ def dashboard(request):
     specialties = list(Provider.objects.values_list("specialty", flat=True).distinct())
     providers = Provider.objects.order_by("full_name").values("id", "full_name")
 
+    # —— NOVO BLOCO: métricas de dor por protocolo ——
+    data_reduc = []
+    for code, label in CarePlan.PROTOCOLS:
+        plans = CarePlan.objects.filter(protocol=code)
+        if not plans.exists():
+            continue
+
+        reductions = []
+        weekly_points = {}  # média por semana (0..11)
+
+        for cp in plans:
+            pa = list(
+                PainAssessment.objects
+                .filter(patient=cp.patient, recorded_at__gte=cp.start_date)
+                .order_by("recorded_at")
+            )
+            if not pa:
+                continue
+
+            base = pa[0].score  # baseline
+            for i, p in enumerate(pa[:12]):        # até 12 semanas
+                weekly_points.setdefault(i, []).append(p.score)
+
+            if len(pa) > 8:
+                reductions.append(base - pa[8].score)
+            elif len(pa) > 1:
+                reductions.append(base - pa[-1].score)
+
+        mean_curve = [
+            {"week": i, "score": round(sum(v)/len(v), 2)}
+            for i, v in sorted(weekly_points.items())
+        ]
+        mean_reduction = round(sum(reductions)/len(reductions), 2) if reductions else 0.0
+
+        data_reduc.append({"protocol": label, "delta": mean_reduction, "curve": mean_curve})
+
+    # top procedimentos (apoio)
+    procs = (CareStep.objects.values("procedure__name")
+            .annotate(cnt=Count("id")).order_by("-cnt")[:8])
+    top_procs = [{"label": r["procedure__name"], "cnt": r["cnt"]} for r in procs]
+    
+    # Separa os payloads para o template
+    reductions_payload = [
+        {"protocol": x["protocol"], "delta": x["delta"]}
+        for x in data_reduc
+    ]
+    curves_payload = [
+        {"protocol": x["protocol"], "points": x["curve"]}
+        for x in data_reduc
+    ]
+
     # contexto
     ctx = dict(
         total=total, completed=completed, cancelled=cancelled, no_show=no_show,
@@ -96,6 +146,10 @@ def dashboard(request):
         specialties=specialties, providers=list(providers),
         daily_json=json.dumps(daily), by_spec_json=json.dumps(by_spec), top_dx_json=json.dumps(top_dx),
         procedures_json=json.dumps(procedures_data), revenue_total=round(revenue_total, 2),
+        # >>> ENTREGAS PARA OS NOVOS GRÁFICOS <<<
+        reductions_json=json.dumps(reductions_payload),
+        curves_json=json.dumps(curves_payload),
+        top_procs_json=json.dumps(top_procs),        
     )
     ctx["now"] = timezone.now() #type: ignore
     return render(request, "clinic/dashboard.html", ctx)

@@ -25,7 +25,7 @@ from clinic.views import (
     staff_signup,                   # existe no seu views.py
     protocols_dashboard,         # se você já criou
     patient_timeline,            # se você já criou
-    # staff_signup,              # comente/retire se NÃO criou essa view
+    staff_signup,              # comente/retire se NÃO criou essa view
 )
 
 urlpatterns = [
@@ -37,12 +37,9 @@ urlpatterns = [
         template_name="registration/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),
 
-    path("staff/novo/", staff_signup, name="staff_signup"),  # vírgula aqui!
-    # Se AINDA não implementou a view staff_signup, deixe comentado:
-    # path("cadastro/", staff_signup, name="staff_signup"),
+    path("staff/novo/", staff_signup, name="staff_signup"), 
     
-    # Opcional: só mantenha se as views já existem
-    # path("dashboard/protocolos/", protocols_dashboard, name="protocols_dashboard"),
-    # path("pacientes/<int:patient_id>/linha-do-tempo/", patient_timeline, name="patient_timeline"),
+    path("protocolos/", protocols_dashboard, name="protocols_dashboard"),
+    path("pacientes/<int:patient_id>/linha-do-tempo/", patient_timeline, name="patient_timeline"),
 ]
 

@@ -194,43 +194,58 @@
         <h3>Procedimentos no período</h3>
         <canvas id="procChart"></canvas>
       </div>
+      <div class="card">
+        <h3>Redução média da dor por protocolo (baseline → semana 8)</h3>
+        <canvas id="reducChart"></canvas>
+      </div>
+      <div class="card">
+        <h3>Top procedimentos no período</h3>
+        <canvas id="topProcChart"></canvas>
+      </div>
+      <div class="card" style="grid-column: 1 / -1;">
+        <h3>Curvas médias por protocolo (semanas)</h3>
+        <canvas id="curveChart"></canvas>
+      </div>
     </div>
   </div>
+  
 
   <!-- Scripts dos gráficos -->
-  <script>
-    // Dados do Django
-    const daily  = {{ daily_json|safe }};
-    const bySpec = {{ by_spec_json|safe }};
-    const topDx  = {{ top_dx_json|safe }};
-    const procs  = {{ procedures_json|safe }};
+<script>
+  // Dados vindos do Django (com ; em todas)
+  const daily      = {{ daily_json|default:"[]"|safe }};
+  const bySpec     = {{ by_spec_json|default:"[]"|safe }};
+  const topDx      = {{ top_dx_json|default:"[]"|safe }};
+  const procs      = {{ procedures_json|default:"[]"|safe }};
+  const reductions = {{ reductions_json|default:"[]"|safe }};
+  const curves     = {{ curves_json|default:"[]"|safe }};
+  const topProcs   = {{ top_procs_json|default:"[]"|safe }};
 
-    // Util: pegar cores do CSS
-    const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-    const brand  = cssVar('--brand');
-    const muted  = cssVar('--muted');
+  const cssVar = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const brand  = cssVar('--brand');
+  const muted  = cssVar('--muted');
 
-    window.addEventListener('load', function () {
-      if (!window.Chart) return console.error('Chart.js não carregou');
+  window.addEventListener('load', function () {
+    if (!window.Chart) { console.error('Chart.js não carregou'); return; }
 
-      // Defaults suaves
-      Chart.defaults.color = muted;
-      Chart.defaults.borderColor = '#E8E2DE';
-      Chart.defaults.font.family = 'Inter, system-ui, Arial, sans-serif';
+    Chart.defaults.color = muted;
+    Chart.defaults.borderColor = '#E8E2DE';
+    Chart.defaults.font.family = 'Inter, system-ui, Arial, sans-serif';
 
+    // 1) Consultas por dia
+    if (daily.length) {
       new Chart(document.getElementById('dailyChart'), {
         type: 'line',
         data: {
           labels: daily.map(x => x.day),
-          datasets: [{
-            label: 'Consultas',
-            data: daily.map(x => x.cnt),
-            borderWidth: 2, tension: .25, borderColor: brand, pointRadius: 0, fill: false
-          }]
+          datasets: [{ label: 'Consultas', data: daily.map(x => x.cnt), borderWidth: 2, tension: .25, borderColor: brand, pointRadius: 0 }]
         },
         options: { responsive: true, maintainAspectRatio: false }
       });
+    }
 
+    // 2) Por especialidade
+    if (bySpec.length) {
       new Chart(document.getElementById('specChart'), {
         type: 'bar',
         data: {
@@ -239,7 +254,10 @@
         },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
       });
+    }
 
+    // 3) Top diagnósticos
+    if (topDx.length) {
       new Chart(document.getElementById('dxChart'), {
         type: 'bar',
         data: {
@@ -248,7 +266,10 @@
         },
         options: { responsive: true, maintainAspectRatio: false }
       });
+    }
 
+    // 4) Procedimentos no período
+    if (procs.length) {
       new Chart(document.getElementById('procChart'), {
         type: 'bar',
         data: {
@@ -257,8 +278,58 @@
         },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
       });
-    });
-  </script>
+    }
+
+    // 5) Redução média
+    if (reductions.length) {
+      const rLabels = reductions.map(x => x.protocol);
+      const rData   = reductions.map(x => Number(x.delta ?? 0));
+      new Chart(document.getElementById('reducChart'), {
+        type: 'bar',
+        data: { labels: rLabels, datasets: [{ label: 'Redução média (pontos)', data: rData }] },
+        options: { responsive:true, scales:{ y:{ beginAtZero:true } } }
+      });
+    }
+
+    // 6) Top procedimentos (novo)
+    if (topProcs.length) {
+      new Chart(document.getElementById('topProcChart'), {
+        type: 'bar',
+        data: {
+          labels: topProcs.map(x => x.label),
+          datasets: [{ label: 'Quantidade', data: topProcs.map(x => Number(x.cnt||0)) }]
+        },
+        options: { indexAxis: 'y', responsive:true, scales:{ x:{ beginAtZero:true } } }
+      });
+    }
+
+    // 7) Curvas médias por protocolo
+    if (reductions.length) {
+      const datasets = reductions.map((r, i) => {
+        const hue = (i*60) % 360;
+        return {
+          label: r.protocol,
+          data: r.curve.map(p => ({ x: p.week, y: p.score })),
+          parsing:false, tension:.25,
+          borderColor: `hsl(${hue} 50% 35%)`,
+          backgroundColor: `hsl(${hue} 60% 70% / .25)`
+        };
+      });
+
+      new Chart(document.getElementById('curveChart'), {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive:true,
+          scales:{
+            x:{ type:'linear', title:{display:true, text:'Semana'}, ticks:{precision:0} },
+            y:{ beginAtZero:true, suggestedMax:10, title:{display:true, text:'Escore de dor'} }
+          }
+        }
+      });
+    }
+  });
+</script>
   <!-- Rodapé -->
   <footer style="
     margin-top:40px;
